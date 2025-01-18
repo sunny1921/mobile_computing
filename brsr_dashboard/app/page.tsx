@@ -65,14 +65,32 @@ export default function Dashboard() {
 
       let totalWaterUnits = 0;
       let totalFuelLitres = 0;
+      let totalElectricityUnits = 0;
       let waterDetails: { period: string; units: number }[] = [];
       let fuelDetails: { billNumber: string; litres: number }[] = [];
+      let electricityDetails: { month: string; year: number; units: number }[] = [];
 
       // Process post offices data
       for (const postOffice of postOfficesSnapshot.docs) {
         const postOfficeId = postOffice.id;
 
         try {
+          // Get electricity bills
+          const electricityRef = collection(db, 'postOffices', postOfficeId, 'electricityBills');
+          const electricitySnapshot = await getDocs(electricityRef);
+          
+          electricitySnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.unitsConsumed) {
+              totalElectricityUnits += Number(data.unitsConsumed);
+              electricityDetails.push({
+                month: data.billingMonth || '',
+                year: data.year || new Date().getFullYear(),
+                units: Number(data.unitsConsumed)
+              });
+            }
+          });
+
           // Get water bills
           const waterRef = collection(db, 'postOffices', postOfficeId, 'waterBills');
           const waterSnapshot = await getDocs(waterRef);
@@ -124,6 +142,10 @@ export default function Dashboard() {
       // Update metrics state
       setMetrics(prevMetrics => ({
         ...prevMetrics,
+        electricityData: {
+          totalUnits: totalElectricityUnits,
+          details: electricityDetails.sort((a, b) => b.year - a.year || b.month.localeCompare(a.month))
+        },
         waterData: {
           totalUnits: totalWaterUnits,
           details: waterDetails
